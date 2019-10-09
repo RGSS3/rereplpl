@@ -16,13 +16,15 @@ CPEND(#{i})
   send MAKE, cname
 end
 
+Runner = RUBY_DESCRIPTION[/linux/] ? "./makecmd" : "makecmd"
+
 def runc(name)
   ENV['import'] = SOURCE.join(" ")
   ENV['main'] =  name
-  raise "A" unless system "makerun" 
+  raise "A" unless system ENV.to_h, Runner
 end
 
-print "] "
+print "~> "
 while (r = gets)
   r = r.chomp("\n")
   case r
@@ -37,17 +39,32 @@ while (r = gets)
   when /^:reload /
     TEXT.clear
   else 
+    if r[0] == '?'
+      retract = true
+      r = r[1..-1]
+    end
     TEXT << r
     begin 
       execute
       r = File.read "repl.txt"
       a = TEXT.size - 1
-      s = r[/!!CPBEGIN#{a}\n([\w\W]*)\n!!CPEND#{a}/, 1]
-      puts s if s
-    rescue
+      ss = []
+      r.scan(/!!CPBEGIN#{a}!!([\w\W]*)!!CPEND#{a}!!/).each{|a, b|
+          ss << a if a
+      }
+      if ss.size == 1
+          puts ss[0]
+      else
+          ss.each_with_index{|x, i|
+            puts "#{i+1}. #{x}"
+          }
+      end
+      TEXT.pop if retract
+    rescue 
       puts File.read "err.txt"
       TEXT.pop
     end
+
   end
-  print((SOURCE + GLOBAL + ["] "]).join(" "))
+  print((SOURCE + ["~> "]).join(" "))
 end
