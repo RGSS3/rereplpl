@@ -19,11 +19,10 @@ end
 def runc(name)
   ENV['import'] = SOURCE.join(" ")
   ENV['main'] =  name
-  `makerun`
+  raise "A" unless system "makerun" 
 end
 
 print "] "
-a = 0
 while (r = gets)
   r = r.chomp("\n")
   case r
@@ -39,10 +38,16 @@ while (r = gets)
     TEXT.clear
   else 
     TEXT << r
-    r = execute
-    s = r[/!!CPBEGIN#{a}\n([\w\W]*)\n!!CPEND#{a}/, 1]
-    puts s if s
+    begin 
+      execute
+      r = File.read "repl.txt"
+      a = TEXT.size - 1
+      s = r[/!!CPBEGIN#{a}\n([\w\W]*)\n!!CPEND#{a}/, 1]
+      puts s if s
+    rescue
+      puts File.read "err.txt"
+      TEXT.pop
+    end
   end
-  print (SOURCE.join(" ") + "] ")
-  a += 1
+  print((SOURCE + GLOBAL + ["] "]).join(" "))
 end
