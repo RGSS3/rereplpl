@@ -1,14 +1,17 @@
 SOURCE = []
 MAKE = :runc
 TEXT = []
-TEXT2 = []
 GLOBAL = []
 def execute
   fname = "__pre__"
   r = IO.read(fname)
   cname = "__app__.c"
   IO.write cname, 
-	r.sub("$$", TEXT.join("\n") + "\n" + TEXT2.join("\n"))
+	r.sub("$$", TEXT.map.with_index{|x, i| 
+"CPBEGIN(#{i})
+#{x}
+CPEND(#{i})
+"}.join)
          .sub("$G", GLOBAL.join("\n"))
   send MAKE, cname
 end
@@ -16,14 +19,13 @@ end
 def runc(name)
   ENV['import'] = SOURCE.join(" ")
   ENV['main'] =  name
-  system "makerun"
+  `makerun`
 end
 
 print "] "
-@a = 0
+a = 0
 while (r = gets)
   r = r.chomp("\n")
-  @a += 1
   case r
   when /^\+(.*)/
     SOURCE << $1.strip
@@ -31,19 +33,16 @@ while (r = gets)
     GLOBAL << $1.strip
   when /^\-(.*)/
     SOURCE.delete $1
-  when /^>>(.*)/
-    TEXT << $1
-    execute
-  when /^>(.*)/
-    TEXT << $1
+  when /^\^(.*)/
+    GLOBAL.delete $1
   when /^:reload /
     TEXT.clear
-    TEXT2.clear
-    SOURCE.clear
   else 
-    TEXT2 << r
-    execute
-    TEXT2.clear
+    TEXT << r
+    r = execute
+    s = r[/!!CPBEGIN#{a}\n([\w\W]*)\n!!CPEND#{a}/, 1]
+    puts s if s
   end
   print (SOURCE.join(" ") + "] ")
+  a += 1
 end
