@@ -43,7 +43,7 @@ while (r = Readline.readline(prompt, true))
     if r.include?("all") || r.include?("source")
       SOURCE.clear
     end
-    if r.include?("all") || r.include?("source")
+    if r.include?("all") || r.include?("global")
       GLOBAL.clear
     end
   
