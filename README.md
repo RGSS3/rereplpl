@@ -25,6 +25,31 @@ rand=19834 a+b=8
 -2
 ```
 
+Usage
+==============
+You should have two other files at current in the working directory.     
+Let's take C language as an example.     
+     
+The template **__pre__**
+```c
+$G
+int main(){
+    $$
+}
+```
+
+The runner **makecmd.cmd**(windows) or **makecmd**(\*nix)     
+windows:    
+```shell
+gcc %import% %main% -o main.exe && main >repl.txt 2>err.txt
+```
+\*nix:
+```shell
+#/bin/bash
+gcc $import $main -o main.out && ./main.out >repl.txt 2>err.txt
+```
+
+
 Words
 ==============
 A value in change is not a good inspection in unit developing
