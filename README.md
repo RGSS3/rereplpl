@@ -23,6 +23,12 @@ rand=17702 a+b=8
 ~> printf("%d\n", a - b);
 rand=19834 a+b=8
 -2
+~> :reload all
+~> ##include <stdio.h>
+~> ##include <math.h>
+~> +-lm
+-lm ~> printf("%lf\n", sin(5.0));
+-0.958924
 ```
 
 Usage
