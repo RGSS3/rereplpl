@@ -1,22 +1,19 @@
+require 'readline'
 SOURCE = []
 MAKE = :runc
 TEXT = []
 GLOBAL = []
 def execute
-  fname = "__pre__"
+  fname = ENV["r_pre"] || "__pre__"
   r = IO.read(fname)
   cname = "__app__.c"
   IO.write cname, 
-	r.sub("$$", TEXT.map.with_index{|x, i| 
-"CPBEGIN(#{i})
-#{x}
-CPEND(#{i})
-"}.join)
+	r.sub("$$", TEXT.join("\n"))
          .sub("$G", GLOBAL.join("\n"))
   send MAKE, cname
 end
 
-Runner = RUBY_DESCRIPTION[/linux/] ? "./makecmd" : "makecmd"
+Runner = ENV["r_runner"] || (RUBY_DESCRIPTION[/linux/] ? "./makecmd" : "makecmd")
 
 def runc(name)
   ENV['import'] = SOURCE.join(" ")
@@ -24,9 +21,13 @@ def runc(name)
   raise "A" unless system ENV.to_h, Runner
 end
 
-print "~> "
-while (r = gets)
-  r = r.chomp("\n")
+def prompt
+ (SOURCE + ["~> "]).join(" ")
+end
+
+old = ""
+
+while (r = Readline.readline(prompt, true))
   case r
   when /^\+(.*)/
     SOURCE << $1.strip
@@ -36,8 +37,16 @@ while (r = gets)
     SOURCE.delete $1
   when /^\^(.*)/
     GLOBAL.delete $1
-  when /^:reload /
+  when /^:reload (.*)/
+    r = $1
     TEXT.clear
+    if r.include?("all") || r.include?("source")
+      SOURCE.clear
+    end
+    if r.include?("all") || r.include?("source")
+      GLOBAL.clear
+    end
+  
   else 
     if r[0] == '?'
       retract = true
@@ -46,25 +55,14 @@ while (r = gets)
     TEXT << r
     begin 
       execute
-      r = File.read "repl.txt"
-      a = TEXT.size - 1
-      ss = []
-      r.scan(/!!CPBEGIN#{a}!!([\w\W]*)!!CPEND#{a}!!/).each{|a, b|
-          ss << a if a
-      }
-      if ss.size == 1
-          puts ss[0]
-      else
-          ss.each_with_index{|x, i|
-            puts "#{i+1}. #{x}"
-          }
-      end
+      IO.write "old.txt", old
+      x = `git diff old.txt repl.txt`
+      puts x.split("\n").select{|x| x[0] == "+" && x[0..2] != "+++"}.map{|x| x[1..-1]}
+      old = File.read "repl.txt"
       TEXT.pop if retract
     rescue 
-      puts File.read "err.txt"
+      puts File.read("err.txt").force_encoding("GBK")
       TEXT.pop
     end
-
   end
-  print((SOURCE + ["~> "]).join(" "))
 end
