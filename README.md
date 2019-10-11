@@ -27,7 +27,7 @@ rand=19834 a+b=8
 
 Usage
 ==============
-You should have two other files at current in the working directory.     
+At current, you should have two other files in the working directory. 
 Let's take C language as an example.     
      
 The template **\_\_pre\_\_**
