@@ -58,8 +58,11 @@ while (r = Readline.readline(prompt, true))
       IO.write "old.txt", old
       x = `git diff old.txt repl.txt`
       puts x.split("\n").select{|x| x[0] == "+" && x[0..2] != "+++"}.map{|x| x[1..-1]}
-      old = File.read "repl.txt"
-      TEXT.pop if retract
+      if retract
+          TEXT.pop
+      else
+          old = File.read "repl.txt"
+      end
     rescue 
       puts File.read("err.txt").force_encoding("GBK")
       TEXT.pop
