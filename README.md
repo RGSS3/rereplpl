@@ -27,4 +27,4 @@ rand=19834 a+b=8
 
 Words
 ==============
-A value in change is not a good value in unit developing
+A value in change is not a good inspection in unit developing
