@@ -30,7 +30,7 @@ Usage
 You should have two other files at current in the working directory.     
 Let's take C language as an example.     
      
-The template **__pre__**
+The template **\_\_pre\_\_**
 ```c
 $G
 int main(){
