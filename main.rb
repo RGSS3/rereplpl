@@ -9,7 +9,7 @@ def execute
   cname = "__app__.c"
   IO.write cname, 
 	r.sub("$$", combine(:text, "\n"))
-     .sub("$G", combine(:global, "\n"))
+         .sub("$G", combine(:global, "\n"))
   send MAKE, cname
 end
 
@@ -39,6 +39,10 @@ def has(key, value)
     space(key).include?(value)
 end
 
+def set(key, value)
+    space(key).replace value
+end
+
 def clear(key)
     space(key).clear
 end
@@ -53,14 +57,14 @@ end
 
 
 def runc(name)
-  ENV['import'] = combine(:source, " ")
+  ENV['import'] = space(:source).join(" ")
   ENV['main'] =  name
   raise "A" unless system ENV.to_h, Runner
 end
 
 def prompt
  if has(:set, :multiline)
-     "...>"
+     "....>"
  else
     (space(:source) + ["~> "]).join(" ")
  end
@@ -109,7 +113,7 @@ def readline
    loop do
      r = Readline.readline(prompt, true)
      if r[0] == ' ' && r[1] == ' '
-       return multiline r
+      return multiline r[2..-1]
      end
      if r == ""
        next
@@ -122,17 +126,19 @@ Readline.completion_proc = COMPLETPROC
 update_completion
 while r = readline
   case r
-  when /^\+(.*)/
+  when /^\+([\w\W]*)/
     add :source, $1.strip
-  when /^#(.*)/
-    add :global, $1.strip
-  when /^\-(.*)/
+    set :source, space(:source).join(" ").split(/[\n ]/)
+  when /^#([\w\W]*)/
+    add :global, $1.strip    
+  when /^\-([\w\W]*)/
     remove :source, $1.strip
-  when /^\^(.*)/
+    set :source, space(:source).join(" ").split(/[\n ]/)
+  when /^\^([\w\W]*)/
     remove :global, $1.strip
   #when /^:irb\b/
   #  binding.irb
-  when /^:reset\b/
+  when /^:reset\b([\w\W]*)/
     r = $1
     clear(:text)
     if r.include?("all") || r.include?("source")
@@ -157,7 +163,7 @@ while r = readline
       else
           old = File.read "repl.txt"
       end
-    rescue 
+    rescue
       puts File.read("err.txt").force_encoding("GBK")
       pop :text
     end
