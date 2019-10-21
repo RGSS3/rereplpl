@@ -1,172 +1,235 @@
 require 'readline'
 require 'irb'
-MAKE = :runc
-WORKSPACE = {}
+require 'yaml'
 
-def execute
-  fname = ENV["r_pre"] || "__pre__"
-  r = IO.read(fname)
-  cname = "__app__.c"
-  IO.write cname, 
-	r.sub("$$", combine(:text, "\n"))
-         .sub("$G", combine(:global, "\n"))
-  send MAKE, cname
-end
-
-Runner = ENV["r_runner"] || (RUBY_DESCRIPTION[/linux/] ? "./makecmd" : "makecmd")
-
-def space(key)
-    WORKSPACE[key] ||= []
-end
-
-def each(key)
-    space(key).each{|x| yield x }
-end
-
-def add(key, value)
-    space(key) << value
-end
-
-def addall(key, value)
-    space(key).concat value
-end
-
-def remove(key, value)
-    space(key).delete(value)
-end
-
-def has(key, value)
-    space(key).include?(value)
-end
-
-def set(key, value)
-    space(key).replace value
-end
-
-def clear(key)
-    space(key).clear
-end
-
-def pop(key)
-    space(key).pop
-end
-
-def combine(key, delim)
-    space(key).join(delim)
-end
-
-
-def runc(name)
-  ENV['import'] = space(:source).join(" ")
-  ENV['main'] =  name
-  raise "A" unless system ENV.to_h, Runner
-end
-
-def prompt
- if has(:set, :multiline)
-     "....>"
- else
-    (space(:source) + ["~> "]).join(" ")
- end
-end
-
-IDENTIFIER = /[A-Za-z_][A-Za-z0-9_]*/
-
-COMPLETPROC = lambda{|x|
-    space(:complete).select{|y| y.start_with?(x) || y.sub(/^\s*/, "").start_with?(x) } + Dir.glob(x + "*").to_a
-}
-
-def update_one(s)
-    r = s.scan(IDENTIFIER).to_a.uniq
-    space(:complete).concat r
-    space(:complete).uniq!
-end
-
-def update_completion
-    clear(:complete)
-    each(:source){|y|
-        update_one File.read y if FileTest.file?(y)
-    }
-    Readline::HISTORY.each{|y|
-        update_one(y)
-    }
-end
-
-def multiline(head)
-  rr = [head]
-  Readline::HISTORY.pop
-  add(:set, :multiline)
-  loop do
-    r = Readline.readline(prompt, true)
-    Readline::HISTORY.pop
-    rr.push r
-    break if r == ""
-  end
-  line = rr.join("\n")
-  Readline::HISTORY.push line
-  remove(:set, :multiline)
-  line
-end
-
-
-def readline
-   loop do
-     r = Readline.readline(prompt, true)
-     if r[0] == ' ' && r[1] == ' '
-      return multiline r[2..-1]
-     end
-     if r == ""
-       next
-     end
-     return r
-   end
-end
-old = ""
-Readline.completion_proc = COMPLETPROC
-update_completion
-while r = readline
-  case r
-  when /^\+([\w\W]*)/
-    add :source, $1.strip
-    set :source, space(:source).join(" ").split(/[\n ]/)
-  when /^#([\w\W]*)/
-    add :global, $1.strip    
-  when /^\-([\w\W]*)/
-    remove :source, $1.strip
-    set :source, space(:source).join(" ").split(/[\n ]/)
-  when /^\^([\w\W]*)/
-    remove :global, $1.strip
-  #when /^:irb\b/
-  #  binding.irb
-  when /^:reset\b([\w\W]*)/
-    r = $1
-    clear(:text)
-    if r.include?("all") || r.include?("source")
-        clear(:source)
+class Resource
+    def initialize(text)
+        @data = YAML.load text
+        @current = @data["WS"]
     end
-    if r.include?("all") || r.include?("global")
-        clear(:global)
+
+    class Runner
+        def initialize(data)
+            @data = data
+        end
+        def expand((a, b))
+            IO.write b, _arr(a).map{|line| line.gsub(/\$<([^>]*)>/) {
+                @data[$1].join("\n")
+            }}.join("\n")
+        end
+
+        def say(a)
+            puts _arr(a)
+        end
+
+        def _arr(a)
+            unless Array === @data[a]
+                @data[a] = []
+            else
+                @data[a]
+            end
+        end
+
+      
+        def poppush((a, b))
+            _arr(b).push(_arr(a).pop)
+        end
+
+        def popunshift((a, b))
+            _arr(b).unshift(_arr(a).pop)
+        end
+
+        def shiftpush((a, b))
+            _arr(b).push(_arr(a).shift)
+        end
+
+        def shiftunshift((a, b))
+            _arr(b).unshift(_arr(a).shift)
+        end
+
+        def clear((a))
+            _arr(a).clear
+        end
+
+        def unshift((a, *b))
+            _arr(a).replace(b.concat(_arr(a)))
+        end
+        
+        def push((a, *b))
+            _arr(a).concat(b)
+        end
+
+        def pop((a))
+            _arr(a).pop
+        end
+
+        def shift((a))
+            _arr(a).shift
+        end
+
+        def set((a, *b))
+            _arr(a).replace(b)
+        end
+
+        def copy((a, b))
+            _arr(b).replace(_arr(a))
+        end
+
+        def difflength((a, b, c))
+            _arr(c).replace(_arr(b)[_arr(a).length..._arr(b).length]) 
+        end
+
+
+        def dup((a))
+            _arr(a).push(_arr(a)[-1])
+        end
+
+        def dupn((a, b))
+            _arr(a).push(_arr(a)[~b])
+        end
+
+
+
+        def writefile((a, *b))
+             open(a, "w") do |f|
+                b.each{|x|
+                    f.write x
+                    f.write "\n"
+                }
+            end
+        end
+
+        def readfile((a, b)) 
+            _arr(b).replace(File.read(a).split("\n"))
+        end
+
+        def appendfile((a, *b))
+            open(a, "a") do |f|
+                b.each{|x|
+                    f.write x
+                    f.write "\n"
+                }
+            end
+        end
+
+        def exit_program
+            exit
+        end
+
+        def exec(a)
+            raise unless system a.join(" ")
+        end
+
+        def ws
+            @data
+        end
+
+        def _runlines(arr)
+            current = nil
+            arr.each{|x|
+                current = x
+                sym = x.keys[0]
+                args = x.values[0]
+                send sym, args
+            }
+        rescue
+            puts "Error when executing #{YAML.dump(current)}"
+            puts $!.to_s
+            system "pause"
+        end
+
+
+        def run((a))
+            key = _arr("STATE")[-1]
+            _runlines ws[key]
+            @data["STATE"].pop
+        end
+
+    
+        def input(a)
+            @regs ||= {}
+            line = Readline.readline(a["prompt"], true)
+            a.each{|k, v|
+                next unless Symbol === k
+                reg = (@regs[k] ||= Regexp.new(k.to_s))
+                if reg =~ line
+                    set ["INPUT", line]
+                    set ["INPUTARGS", *Regexp.last_match.to_a.reverse]
+                    _runlines v
+                    break
+                end
+            }
+        end
     end
-  else 
-    if r[0] == '?'
-      retract = true
-      r = r[1..-1]
+
+    def run(key = :MAIN)
+        loop do
+            r = Runner.new(@data[@current])
+            r.run []
+        end
     end
-    add :text, r
-    begin 
-      execute
-      IO.write "old.txt", old
-      x = `git diff old.txt repl.txt`
-      puts x.split("\n").select{|x| x[0] == "+" && x[0..2] != "+++"}.map{|x| x[1..-1]}
-      if retract
-          pop :text
-      else
-          old = File.read "repl.txt"
-      end
-    rescue
-      puts File.read("err.txt").force_encoding("GBK")
-      pop :text
-    end
-  end
-  update_completion
 end
+
+text = DATA.read
+r = Resource.new(text)
+r.run
+
+__END__
+WS: default
+default:
+    CODE: 
+       - |
+          $<GLOBAL>
+          int main() {
+              $<TEXT>
+          }
+
+    SOURCE:   []
+    GLOBAL:   ['#include <stdio.h>']
+    TEXT:     []
+    COMPLETE: []
+    OUTPUT:   []
+    STATE: 
+       - :MAIN
+    :MAIN:
+       - push: 
+         - STATE
+         - :MAIN
+
+       - input:
+          prompt: " >"
+          :^test (\d+) (\d+):  
+             - clear: T
+             - dupn: [INPUTARGS, 2]
+             - poppush: [INPUTARGS, T]
+             - dupn: [INPUTARGS, 1]
+             - poppush: [INPUTARGS, T]
+             - say: T
+          :^\+(.+):
+             - dupn: [INPUTARGS, 1]
+             - poppush: [INPUTARGS, SOURCE]
+          :#(.+):
+             - dupn: [INPUTARGS, 1]
+             - poppush: [INPUTARGS, GLOBAL]
+          :.+:
+             - poppush: [INPUT, TEXT]
+             - push: 
+                 - STATE
+                 - :RUN
+             - run: []
+                 
+             
+
+    :RUN:
+       - expand:     [CODE, app.c]
+       - expand:     [SOURCE, run]
+       - appendfile: [run, -o, app.exe, app.c]
+       - exec:       [gcc, '@run']
+       - exec:       [app.exe, "> output.txt"]
+       - readfile:   [output.txt, T]
+       - difflength: [OUTPUT, T, U]
+       - say: U
+       - copy:       [U, OUTPUT]
+       
+
+ 
