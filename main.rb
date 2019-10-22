@@ -6,9 +6,10 @@ module Repl
 end
 
 class Resource
-    def initialize(text, largs)
+    def initialize(text, largs, filename)
         @data = YAML.load text
         @data["ARGS"] = largs || []
+        @data["FILENAME"] = [filename]
         @current = @data["WS"]
         (@data["HISTORY"] || []).each {|x|
             Readline::HISTORY.push x
@@ -19,8 +20,8 @@ class Resource
         @data["HISTORY"] = Readline::HISTORY.length.times.map{|i|
             Readline::HISTORY[i]
         }
-        if fn
-            IO.binwrite fn, YAML.dump(@data)
+        if @data["FILENAME"][-1]
+            IO.binwrite @data["FILENAME"][-1], YAML.dump(@data)
         end
     end
 
@@ -206,7 +207,7 @@ end
     
 text = fn ? File.read(fn) : DATA.read
 
-r = Resource.new(text, largs)
+r = Resource.new(text, largs, fn)
 at_exit {
     r.dump(fn)
 }
@@ -215,6 +216,7 @@ r.run
 __END__
 WS: default
 HISTORY: []
+FILENAME: []
 default:
     CODE: 
        - |
@@ -232,7 +234,7 @@ default:
     STATE: 
        - :MAIN
     INPUT_PROMPT:
-       - " > "
+       - "~> "
     :MAIN:
        - push: 
          - STATE
