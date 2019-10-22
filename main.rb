@@ -3,9 +3,22 @@ require 'irb'
 require 'yaml'
 
 class Resource
-    def initialize(text)
+    def initialize(text, largs)
         @data = YAML.load text
+        @data["ARGS"] = largs || []
         @current = @data["WS"]
+        (@data["HISTORY"] || []).each {|x|
+            Readline::HISTORY.push x
+        }
+    end
+
+    def dump(fn)
+        @data["HISTORY"] = Readline::HISTORY.length.times.map{|i|
+            Readline::HISTORY[i]
+        }
+        if fn
+            IO.binwrite fn, YAML.dump(@data)
+        end
     end
 
     class Runner
@@ -138,7 +151,6 @@ class Resource
             system "pause"
         end
 
-
         def run((a))
             key = _arr("STATE")[-1]
             _runlines ws[key]
@@ -149,12 +161,17 @@ class Resource
         def input(a)
             @regs ||= {}
             line = Readline.readline(a["prompt"], true)
+            set ["INPUT", line]
+            push ["MATCH", line]
+        end
+
+        def match((a))
+            line = pop ["MATCH"]
             a.each{|k, v|
                 next unless Symbol === k
                 reg = (@regs[k] ||= Regexp.new(k.to_s))
                 if reg =~ line
-                    set ["INPUT", line]
-                    set ["INPUTARGS", *Regexp.last_match.to_a.reverse]
+                    set ["MATCHARGS", *Regexp.last_match.to_a.reverse]
                     _runlines v
                     break
                 end
@@ -170,12 +187,26 @@ class Resource
     end
 end
 
-text = DATA.read
-r = Resource.new(text)
+sep = ARGV.index('--')
+if !sep
+    fn = ARGV[0]
+else
+    fargs = ARGV[0, sep]
+    largs = ARGV[(sep + 1)..-1]
+    fn = fargs[0]    
+end
+    
+text = fn ? File.read(fn) : DATA.read
+
+r = Resource.new(text, largs)
+at_exit {
+    r.dump(fn)
+}
 r.run
 
 __END__
 WS: default
+HISTORY: []
 default:
     CODE: 
        - |
@@ -189,6 +220,7 @@ default:
     TEXT:     []
     COMPLETE: []
     OUTPUT:   []
+    HISTORY:  []
     STATE: 
        - :MAIN
     :MAIN:
@@ -198,19 +230,20 @@ default:
 
        - input:
           prompt: " >"
+       - match:
           :^test (\d+) (\d+):  
              - clear: T
-             - dupn: [INPUTARGS, 2]
-             - poppush: [INPUTARGS, T]
-             - dupn: [INPUTARGS, 1]
-             - poppush: [INPUTARGS, T]
+             - dupn: [MATCHARGS, 2]
+             - poppush: [MATCHARGS, T]
+             - dupn: [MATCHARGS, 1]
+             - poppush: [MATCHARGS, T]
              - say: T
           :^\+(.+):
-             - dupn: [INPUTARGS, 1]
-             - poppush: [INPUTARGS, SOURCE]
+             - dupn: [MATCHARGS, 1]
+             - poppush: [MATCHARGS, SOURCE]
           :#(.+):
-             - dupn: [INPUTARGS, 1]
-             - poppush: [INPUTARGS, GLOBAL]
+             - dupn: [MATCHARGS, 1]
+             - poppush: [MATCHARGS, GLOBAL]
           :.+:
              - poppush: [INPUT, TEXT]
              - push: 
@@ -228,7 +261,7 @@ default:
        - exec:       [app.exe, "> output.txt"]
        - readfile:   [output.txt, T]
        - difflength: [OUTPUT, T, U]
-       - say: U
+       - say:        U
        - copy:       [U, OUTPUT]
        
 
