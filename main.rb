@@ -2,6 +2,9 @@ require 'readline'
 require 'irb'
 require 'yaml'
 
+module Repl
+end
+
 class Resource
     def initialize(text, largs)
         @data = YAML.load text
@@ -137,6 +140,11 @@ class Resource
             @data
         end
 
+        def mixin((a, b))
+            require a
+            include Repl.const_get(b)
+        end
+
         def _runlines(arr)
             current = nil
             arr.each{|x|
@@ -160,13 +168,13 @@ class Resource
     
         def input(a)
             @regs ||= {}
-            line = Readline.readline(a["prompt"], true)
+            line = Readline.readline(_arr("INPUT_PROMPT").last, true)
             set ["INPUT", line]
             push ["MATCH", line]
         end
 
         def match((a))
-            line = pop ["MATCH"]
+            line = pop(["MATCH"]).to_s
             a.each{|k, v|
                 next unless Symbol === k
                 reg = (@regs[k] ||= Regexp.new(k.to_s))
@@ -223,13 +231,14 @@ default:
     HISTORY:  []
     STATE: 
        - :MAIN
+    INPUT_PROMPT:
+       - " > "
     :MAIN:
        - push: 
          - STATE
          - :MAIN
 
-       - input:
-          prompt: " >"
+       - input: []
        - match:
           :^test (\d+) (\d+):  
              - clear: T
@@ -241,7 +250,7 @@ default:
           :^\+(.+):
              - dupn: [MATCHARGS, 1]
              - poppush: [MATCHARGS, SOURCE]
-          :#(.+):
+          :^#(.+):
              - dupn: [MATCHARGS, 1]
              - poppush: [MATCHARGS, GLOBAL]
           :.+:
