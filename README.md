@@ -24,7 +24,7 @@ Try the .yml file
 The default configuration hardcoded in main.rb is just an REPL for C language   
 but you may try:    
 ```shell
-ruby main.rb simple_echo.yml --- Hello
+ruby main.rb simple_echo.yml -- Hello
 ```
 
 Words
