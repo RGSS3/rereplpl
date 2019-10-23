@@ -54,6 +54,18 @@ class Resource
             _arr(b).push(_arr(a).pop)
         end
 
+        def copypush((a, b))
+            _arr(b).push(_arr(a)[-1])
+        end
+
+        def joinpush((a, c, b))
+            _arr(b).push(_arr(a).join(c))
+        end
+
+        def joinset((a, c, b))
+            _arr(b).replace([_arr(a).join(c)])
+        end
+
         def popunshift((a, b))
             _arr(b).unshift(_arr(a).pop)
         end
@@ -145,6 +157,10 @@ class Resource
                     _runlines a[:fail]
                 end
             end
+        end
+
+        def execlist(a)
+            exec(_arr(a))
         end
 
         def ws

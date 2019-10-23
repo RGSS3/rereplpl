@@ -1,0 +1,57 @@
+---
+WS: default
+default:
+  STATE:
+  - :MAIN
+  :MAIN:
+  - input: []
+  - copy:
+    - ARGS
+    - T
+  - copypush:
+    - INPUT
+    - T
+  - joinset:
+    - T
+    - " "
+    - T
+  - execlist: T
+  ARGS: &1
+  - gem
+  :INIT: []
+  :BEFORE_INPUT: []
+  INPUT_PROMPT:
+  - ">> "
+  :AFTER_INPUT: []
+  INPUT:
+  - source list
+  MATCH:
+  - list
+  - 
+  - list
+  - list
+  - list
+  - list
+  - install y
+  - list
+  - list
+  - list sin
+  - install y
+  - source list
+  T:
+  - gem source list
+ARGS: *1
+FILENAME:
+- repl.yml
+HISTORY:
+- list
+- list
+- list
+- list
+- list
+- install y
+- list
+- list
+- list sin
+- install y
+- source list
