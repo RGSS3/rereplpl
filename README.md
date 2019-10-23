@@ -20,7 +20,7 @@ rand=17675 a+b=8
 
 Usage
 ==============
-Try the .yml file
+Try the .yml file      
 The default configuration hardcoded in main.rb is just an REPL for C language   
 but you may try:    
 ```shell
