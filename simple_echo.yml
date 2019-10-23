@@ -6,10 +6,3 @@ default:
   :MAIN:
   - say: ARGS
   - exit_program: []
-  :INIT: []
-  ARGS: &1
-  - Hello
-HISTORY: []
-ARGS: *1
-FILENAME:
-- simple_echo.yml
