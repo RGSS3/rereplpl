@@ -1,0 +1,19 @@
+---
+WS: default
+default:
+  STATE:
+  - :MAIN
+  :MAIN:
+  - set:
+    - T
+    - Hello world
+  - say: T
+  - exit_program: []
+  :INIT: []
+  T:
+  - Hello world
+ARGS:
+- '123'
+FILENAME:
+- simple.yml
+HISTORY: []

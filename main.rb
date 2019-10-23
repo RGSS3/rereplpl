@@ -26,9 +26,11 @@ class Resource
     end
 
     class Runner
-        def initialize(data)
+        def initialize(data, largs)
             @data = data
+            @data["ARGS"] = largs
         end
+
         def expand((a, b))
             IO.write b, _arr(a).map{|line| line.gsub(/\$<([^>]*)>/) {
                 @data[$1].join("\n") + "\n"
@@ -202,7 +204,7 @@ class Resource
     end
 
     def run
-        r = Runner.new(@data[@current])
+        r = Runner.new(@data[@current], @data["ARGS"])
         r.push ["STATE", :INIT]
         r.run []
         r.pop ["STATE"]
@@ -222,7 +224,6 @@ else
 end
     
 text = fn ? File.read(fn) : DATA.read
-
 r = Resource.new(text, largs, fn)
 at_exit {
     r.dump
