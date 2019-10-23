@@ -22,6 +22,10 @@ Usage
 ==============
 Try the .yml file      
 The default configuration hardcoded in main.rb is just an REPL for C language   
+```shell
+ruby main.rb
+~> ... same thing as above
+```
 but you may try:    
 ```shell
 ruby main.rb simple_echo.yml -- Hello
