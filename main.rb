@@ -16,7 +16,7 @@ class Resource
         }
     end
 
-    def dump(fn)
+    def dump
         @data["HISTORY"] = Readline::HISTORY.length.times.map{|i|
             Readline::HISTORY[i]
         }
@@ -31,8 +31,8 @@ class Resource
         end
         def expand((a, b))
             IO.write b, _arr(a).map{|line| line.gsub(/\$<([^>]*)>/) {
-                @data[$1].join("\n")
-            }}.join("\n")
+                @data[$1].join("\n") + "\n"
+            }}.join("\n") + "\n"
         end
 
         def say(a)
@@ -89,7 +89,7 @@ class Resource
         end
 
         def copy((a, b))
-            _arr(b).replace(_arr(a))
+            _arr(b).replace(_arr(a)[0..-1])
         end
 
         def difflength((a, b, c))
@@ -107,9 +107,9 @@ class Resource
 
 
 
-        def writefile((a, *b))
-             open(a, "w") do |f|
-                b.each{|x|
+        def writefile((a, b))
+            open(b, "a") do |f|
+                _arr(a).each{|x|
                     f.write x
                     f.write "\n"
                 }
@@ -120,21 +120,29 @@ class Resource
             _arr(b).replace(File.read(a).split("\n"))
         end
 
-        def appendfile((a, *b))
-            open(a, "a") do |f|
-                b.each{|x|
+        def appendfile((a, b))
+            open(b, "a") do |f|
+                _arr(a).each{|x|
                     f.write x
                     f.write "\n"
                 }
             end
         end
 
-        def exit_program
+        def exit_program(*)
             exit
         end
 
         def exec(a)
-            raise unless system a.join(" ")
+            if Array === a
+                raise unless system a.join(" ")
+            elsif Hash === a
+                if system(a[:cmd].join(" "))
+                    _runlines a[:success]
+                else
+                    _runlines a[:fail]
+                end
+            end
         end
 
         def ws
@@ -143,7 +151,7 @@ class Resource
 
         def mixin((a, b))
             require a
-            include Repl.const_get(b)
+            self.class.send :include, Repl.const_get(b)
         end
 
         def _runlines(arr)
@@ -162,14 +170,19 @@ class Resource
 
         def run((a))
             key = _arr("STATE")[-1]
-            _runlines ws[key]
-            @data["STATE"].pop
+            _runlines _arr(key)
         end
 
     
-        def input(a)
+        def input(*)
             @regs ||= {}
+            push ["STATE", :BEFORE_INPUT]
+            run  []
+            pop  ["STATE"]
             line = Readline.readline(_arr("INPUT_PROMPT").last, true)
+            push ["STATE", :AFTER_INPUT]
+            run  []
+            pop  ["STATE"]
             set ["INPUT", line]
             push ["MATCH", line]
         end
@@ -188,9 +201,12 @@ class Resource
         end
     end
 
-    def run(key = :MAIN)
-        loop do
-            r = Runner.new(@data[@current])
+    def run
+        r = Runner.new(@data[@current])
+        r.push ["STATE", :INIT]
+        r.run []
+        r.pop ["STATE"]
+        until r._arr("STATE").empty?
             r.run []
         end
     end
@@ -209,7 +225,7 @@ text = fn ? File.read(fn) : DATA.read
 
 r = Resource.new(text, largs, fn)
 at_exit {
-    r.dump(fn)
+    r.dump
 }
 r.run
 
@@ -235,20 +251,26 @@ default:
        - :MAIN
     INPUT_PROMPT:
        - "~> "
-    :MAIN:
-       - push: 
-         - STATE
-         - :MAIN
+    :INIT:
+       - clear: OUTPUT
+       #- mixin: [./arith.rb, Arith]
+       #- push: [T, 3]
+       #- push: [T, 5]
+       #- add: T
+       #- say: T
+    MULTILINE: [false]
+    :BEFORE_INPUT:
+    :AFTER_INPUT:
 
+    :MAIN:
        - input: []
        - match:
-          :^test (\d+) (\d+):  
-             - clear: T
-             - dupn: [MATCHARGS, 2]
-             - poppush: [MATCHARGS, T]
-             - dupn: [MATCHARGS, 1]
-             - poppush: [MATCHARGS, T]
-             - say: T
+          :^!exit:
+             - exit_program: 
+          :^!m:
+             - set: [MULTILINE, true]
+          :^!s:
+             - set: [MULTILINE, false]
           :^\+(.+):
              - dupn: [MATCHARGS, 1]
              - poppush: [MATCHARGS, SOURCE]
@@ -257,23 +279,47 @@ default:
              - poppush: [MATCHARGS, GLOBAL]
           :.+:
              - poppush: [INPUT, TEXT]
-             - push: 
-                 - STATE
-                 - :RUN
-             - run: []
-                 
+             - dup: [MULTILINE]
+             - poppush: [MULTILINE, MATCH]
+             - match:
+                 :false:
+                     - push: 
+                         - STATE
+                         - :RUN
+                     - run: []
+                     - pop: STATE
+          :^$:
+             - poppush: [INPUT, TEXT]
+             - dup: [MULTILINE]
+             - poppush: [MULTILINE, MATCH]
+             - match:
+                 :true:
+                     - push: 
+                         - STATE
+                         - :RUN
+                     - run: []
+                     - pop: STATE
+
+          
              
 
     :RUN:
        - expand:     [CODE, app.c]
        - expand:     [SOURCE, run]
-       - appendfile: [run, -o, app.exe, app.c]
-       - exec:       [gcc, '@run']
-       - exec:       [app.exe, "> output.txt"]
-       - readfile:   [output.txt, T]
-       - difflength: [OUTPUT, T, U]
-       - say:        U
-       - copy:       [U, OUTPUT]
+       - set: [EXTRA,  -o, app.exe, app.c]
+       - appendfile: [EXTRA, run]
+       - exec:       
+           :cmd: [gcc, '@run']
+           :success:
+              - exec:       [app.exe, "> output.txt"]
+              - readfile:   [output.txt, T]
+              - difflength: [OUTPUT, T, U]
+              - say:        U
+              - copy:       [T, OUTPUT]
+           :fail:
+              - pop: TEXT
+
        
 
  
+
